@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/gif"
 	"image/png"
-	_ "image/png"
 	"os"
 	"time"
 
