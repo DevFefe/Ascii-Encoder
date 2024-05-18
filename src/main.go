@@ -158,19 +158,17 @@ func main() {
 
 	for video.Read() {
 		startTime := time.Now()
-		frame := video.FrameBuffer()
 
+		frame := video.FrameBuffer()
 		png.Encode(bytes.NewBuffer(frame), img)
 
 		fmt.Print(convertImage(img, asciiChars))
 
 		elapsed := time.Since(startTime)
-
 		sleepTime := time.Second/time.Duration(video.FPS()) - elapsed
 		if sleepTime > 0 {
 			time.Sleep(sleepTime)
 		}
-
 		time.Sleep(time.Duration(time.Second / time.Duration(video.FPS())))
 	}
 }
