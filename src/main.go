@@ -169,6 +169,5 @@ func main() {
 		if sleepTime > 0 {
 			time.Sleep(sleepTime)
 		}
-		time.Sleep(time.Duration(time.Second / time.Duration(video.FPS())))
 	}
 }
