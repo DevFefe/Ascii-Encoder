@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"image"
 	"image/gif"
+	"image/png"
 	_ "image/png"
 	"os"
 	"time"
 
+	vidio "github.com/AlexEidt/Vidio"
 	"golang.org/x/term"
 )
 
@@ -44,34 +46,68 @@ func decodeGif(filename string) (*gif.GIF, error) {
 	return images, nil
 }
 
-func calcBounds(value gif.GIF) (int, int, int, int) {
+func calcBounds(value image.Image) (int, int, int, int) {
 	width, height, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		fmt.Println("Error getting terminal size:", err)
 		return 0, 0, 0, 0
 	}
 
-	maxWidth := 0
-	maxHeight := 0
-	// Iterate through all frames to find the maximum width and height
-	for _, frame := range value.Image {
-		bounds := frame.Bounds()
-		width := bounds.Max.X
-		height := bounds.Max.Y
+	imageWidth := value.Bounds().Max.X
+	imageHeight := value.Bounds().Max.Y
 
-		if width > maxWidth {
-			maxWidth = width
+	// Calculate the aspect ratio of the terminal
+	terminalAspectRatio := float64(width) / float64(height)
+	// Calculate the aspect ratio of the image
+	imageAspectRatio := float64(imageWidth) / float64(imageHeight)
+
+	var adjustedWidth, adjustedHeight int
+
+	if imageAspectRatio > terminalAspectRatio {
+		// Image is wider than the terminal, fit width
+		adjustedWidth = width
+		adjustedHeight = int(float64(width) / imageAspectRatio)
+	} else {
+		// Image is taller than the terminal, fit height
+		adjustedHeight = height
+		adjustedWidth = int(float64(height) * imageAspectRatio)
+	}
+
+	width_diff := imageWidth / adjustedWidth / 2
+	height_diff := imageHeight / adjustedHeight
+
+	return width, height, width_diff, height_diff
+}
+
+func convertImage(frame image.Image, asciiChars []rune) string {
+	width, height, width_diff, height_diff := calcBounds(frame)
+
+	var buffer bytes.Buffer
+
+	buffer.WriteString("\033[H")
+
+	for y := range height {
+		for x := range width {
+			new_x := x*width_diff - width_diff/2
+			new_y := y*height_diff - height_diff/2
+
+			if new_x > frame.Bounds().Max.X || new_y > frame.Bounds().Max.Y ||
+				new_x < frame.Bounds().Min.X || new_y < frame.Bounds().Min.Y {
+				buffer.WriteRune(asciiChars[len(asciiChars)-1])
+
+			} else {
+				R, G, B, _ := frame.At(new_x, new_y).RGBA()
+				Y := 0.2126*float64(R) + 0.7152*float64(G) + 0.0722*float64(B)
+
+				buffer.WriteRune(asciiChars[int(Y)%len(asciiChars)])
+			}
 		}
-		if height > maxHeight {
-			maxHeight = height
+		if y != height-1 {
+			buffer.WriteString("\n")
 		}
 	}
 
-	// Calculate width_diff and height_diff using the maximum dimensions
-	width_diff := maxWidth / height / 2
-	height_diff := maxHeight / height
-
-	return width, height, width_diff, height_diff
+	return buffer.String()
 }
 
 func main() {
@@ -81,6 +117,8 @@ func main() {
 		return
 	}
 
+	asciiChars := []rune{'$', '@', 'B', '%', '8', '&', 'W', 'M', '#', '*', 'o', 'a', 'h', 'k', 'b', 'd', 'p', 'q', 'w', 'm', 'Z', 'O', '0', 'Q', 'L', 'C', 'J', 'U', 'Y', 'X', 'z', 'c', 'v', 'u', 'n', 'x', 'r', 'j', 'f', 't', '/', '\\', '|', '(', ')', '1', '{', '}', '[', ']', '?', '-', '_', '+', '~', '<', '>', 'i', '!', 'l', 'I', ';', ':', ',', '"', '^', '`', '\''}
+
 	// Convert Image to Ascii
 
 	// image, _, err := decodeImage("./gif.gif")
@@ -89,48 +127,50 @@ func main() {
 	// 	return
 	// }
 
-	gif, err := decodeGif("./gif.gif")
+	// gif, err := decodeGif("./gif.gif")
+	// if err != nil {
+	// 	fmt.Println(err.Error())
+	// 	return
+	// }
+
+	// index := 0
+	// for {
+	// 	// frame := video.FrameBuffer()
+	// 	// img, _, err := image.Decode(bytes.NewReader(frame))
+	// 	// if err != nil {
+	// 	// 	log.Fatalln(err)
+	// 	// }
+
+	// 	fmt.Print(convertFrame(gif.Image[index], asciiChars))
+
+	// 	time.Sleep(time.Duration(time.Second / 15))
+
+	// 	index += 1
+	// }
+
+	video, err := vidio.NewVideo("video.mp4")
 	if err != nil {
-		fmt.Println(err.Error())
 		return
 	}
 
-	asciiChars := []rune{'$', '@', 'B', '%', '8', '&', 'W', 'M', '#', '*', 'o', 'a', 'h', 'k', 'b', 'd', 'p', 'q', 'w', 'm', 'Z', 'O', '0', 'Q', 'L', 'C', 'J', 'U', 'Y', 'X', 'z', 'c', 'v', 'u', 'n', 'x', 'r', 'j', 'f', 't', '/', '\\', '|', '(', ')', '1', '{', '}', '[', ']', '?', '-', '_', '+', '~', '<', '>', 'i', '!', 'l', 'I', ';', ':', ',', '"', '^', '`', '\''}
+	img := image.NewRGBA(image.Rect(0, 0, video.Width(), video.Height()))
+	video.SetFrameBuffer(img.Pix)
 
-	var width, height, width_diff, height_diff int
+	for video.Read() {
+		startTime := time.Now()
+		frame := video.FrameBuffer()
 
-	index := 0
-	for {
-		width, height, width_diff, height_diff = calcBounds(*gif)
+		png.Encode(bytes.NewBuffer(frame), img)
 
-		var buffer bytes.Buffer
+		fmt.Print(convertImage(img, asciiChars))
 
-		buffer.WriteString("\033[H")
+		elapsed := time.Since(startTime)
 
-		for y := range height {
-			for x := range width {
-				new_x := x*width_diff - width_diff/2
-				new_y := y*height_diff - height_diff/2
-
-				if new_x > gif.Image[index%len(gif.Image)].Bounds().Max.X || new_y > gif.Image[index%len(gif.Image)].Bounds().Max.Y ||
-					new_x < gif.Image[index%len(gif.Image)].Bounds().Min.X || new_y < gif.Image[index%len(gif.Image)].Bounds().Min.Y {
-					buffer.WriteRune(asciiChars[len(asciiChars)-1])
-
-				} else {
-					R, G, B, _ := gif.Image[index%len(gif.Image)].At(new_x, new_y).RGBA()
-					y := 0.2126*float64(R) + 0.7152*float64(G) + 0.0722*float64(B)
-					buffer.WriteRune(asciiChars[int(y)%len(asciiChars)])
-				}
-			}
-			if y != height-1 {
-				buffer.WriteString("\n")
-			}
+		sleepTime := time.Second/time.Duration(video.FPS()) - elapsed
+		if sleepTime > 0 {
+			time.Sleep(sleepTime)
 		}
 
-		fmt.Print(buffer.String())
-
-		time.Sleep(time.Duration(gif.Delay[index%len(gif.Image)]) * 10 * time.Millisecond)
-
-		index += 1
+		time.Sleep(time.Duration(time.Second / time.Duration(video.FPS())))
 	}
 }
