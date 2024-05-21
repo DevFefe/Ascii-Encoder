@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/gif"
 	"image/png"
 	"os"
 	"strings"
@@ -15,38 +14,6 @@ import (
 	vidio "github.com/AlexEidt/Vidio"
 	"golang.org/x/term"
 )
-
-// Convert image file to image.Image obj
-func decodeImage(filename string) (image.Image, string, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, "", err
-	}
-	defer file.Close()
-
-	img, format, err := image.Decode(file)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return img, format, nil
-}
-
-// Convert image file to image.Image obj
-func decodeGif(filename string) (*gif.GIF, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	images, err := gif.DecodeAll(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return images, nil
-}
 
 func calcBounds(value image.Image) (int, int, int, int) {
 	width, height, err := term.GetSize(int(os.Stdin.Fd()))
@@ -58,19 +25,15 @@ func calcBounds(value image.Image) (int, int, int, int) {
 	imageWidth := value.Bounds().Max.X
 	imageHeight := value.Bounds().Max.Y
 
-	// Calculate the aspect ratio of the terminal
 	terminalAspectRatio := float64(width) / float64(height)
-	// Calculate the aspect ratio of the image
 	imageAspectRatio := float64(imageWidth) / float64(imageHeight)
 
 	var adjustedWidth, adjustedHeight int
 
 	if imageAspectRatio > terminalAspectRatio {
-		// Image is wider than the terminal, fit width
 		adjustedWidth = width
 		adjustedHeight = int(float64(width) / imageAspectRatio)
 	} else {
-		// Image is taller than the terminal, fit height
 		adjustedHeight = height
 		adjustedWidth = int(float64(height) * imageAspectRatio)
 	}
@@ -151,35 +114,6 @@ func main() {
 	}
 
 	asciiChars := []rune{'$', '@', 'B', '%', '8', '&', 'W', 'M', '#', '*', 'o', 'a', 'h', 'k', 'b', 'd', 'p', 'q', 'w', 'm', 'Z', 'O', '0', 'Q', 'L', 'C', 'J', 'U', 'Y', 'X', 'z', 'c', 'v', 'u', 'n', 'x', 'r', 'j', 'f', 't', '/', '\\', '|', '(', ')', '1', '{', '}', '[', ']', '?', '-', '_', '+', '~', '<', '>', 'i', '!', 'l', 'I', ';', ':', ',', '"', '^', '`', '\''}
-
-	// Convert Image to Ascii
-
-	// image, _, err := decodeImage("./gif.gif")
-	// if err != nil {
-	// 	fmt.Println(err.Error())
-	// 	return
-	// }
-
-	// gif, err := decodeGif("./gif.gif")
-	// if err != nil {
-	// 	fmt.Println(err.Error())
-	// 	return
-	// }
-
-	// index := 0
-	// for {
-	// 	// frame := video.FrameBuffer()
-	// 	// img, _, err := image.Decode(bytes.NewReader(frame))
-	// 	// if err != nil {
-	// 	// 	log.Fatalln(err)
-	// 	// }
-
-	// 	fmt.Print(convertFrame(gif.Image[index], asciiChars))
-
-	// 	time.Sleep(time.Duration(time.Second / 15))
-
-	// 	index += 1
-	// }
 
 	video, err := vidio.NewVideo(string(*video_filename))
 	if err != nil {
