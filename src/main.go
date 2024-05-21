@@ -95,10 +95,16 @@ func convertImage(frame image.Image, asciiChars []rune) string {
 				buffer.WriteRune(asciiChars[len(asciiChars)-1])
 
 			} else {
-				R, G, B, _ := frame.At(new_x, new_y).RGBA()
+				R, G, B, A := frame.At(new_x, new_y).RGBA()
+				if A != 0 {
+					R = R * 255 / A
+					G = G * 255 / A
+					B = B * 255 / A
+				}
+
 				Y := 0.2126*float64(R) + 0.7152*float64(G) + 0.0722*float64(B)
 
-				buffer.WriteRune(asciiChars[int(Y)%len(asciiChars)])
+				buffer.WriteString("\x1b[38;2;" + fmt.Sprintf("%d", R) + ";" + fmt.Sprintf("%d", G) + ";" + fmt.Sprintf("%d", B) + "m" + string(asciiChars[int(Y)%len(asciiChars)]) + "\x1b[0m")
 			}
 		}
 		if y != height-1 {
@@ -147,24 +153,32 @@ func main() {
 	// 	index += 1
 	// }
 
-	video, err := vidio.NewVideo("video.mp4")
+	video, err := vidio.NewVideo("nyan.mp4")
 	if err != nil {
+		fmt.Printf(err.Error())
 		return
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, video.Width(), video.Height()))
 	video.SetFrameBuffer(img.Pix)
 
+	index := 0
 	for video.Read() {
+		if index == 0 {
+			index++
+		} else {
+			index = 0
+			continue
+		}
+
 		startTime := time.Now()
 
 		frame := video.FrameBuffer()
 		png.Encode(bytes.NewBuffer(frame), img)
-
 		fmt.Print(convertImage(img, asciiChars))
 
 		elapsed := time.Since(startTime)
-		sleepTime := time.Second/time.Duration(video.FPS()) - elapsed
+		sleepTime := time.Second/time.Duration(video.FPS()/2) - elapsed
 		if sleepTime > 0 {
 			time.Sleep(sleepTime)
 		}
