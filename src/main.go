@@ -88,15 +88,14 @@ func convertImage(frame image.Image, asciiChars []rune) string {
 
 	buffer.WriteString("\033[H")
 
-	for y := range height {
+	for y := range height - 1 {
 		for x := range width {
 			new_x := x*width_diff - width_diff/2
 			new_y := y*height_diff - height_diff/2
 
 			if new_x > frame.Bounds().Max.X || new_y > frame.Bounds().Max.Y ||
 				new_x < frame.Bounds().Min.X || new_y < frame.Bounds().Min.Y {
-				buffer.WriteRune(asciiChars[len(asciiChars)-1])
-
+				buffer.WriteRune(' ')
 			} else {
 				R, G, B, A := frame.At(new_x, new_y).RGBA()
 				if A != 0 {
@@ -116,6 +115,14 @@ func convertImage(frame image.Image, asciiChars []rune) string {
 	}
 
 	return buffer.String()
+}
+
+func formatTime(seconds int) string {
+	minutes := seconds / 60
+	seconds = seconds % 60
+	hours := minutes / 60
+	minutes = minutes % 60
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
 }
 
 func main() {
@@ -183,25 +190,24 @@ func main() {
 	img := image.NewRGBA(image.Rect(0, 0, video.Width(), video.Height()))
 	video.SetFrameBuffer(img.Pix)
 
-	index := 0
+	frame_count := 0
 	for video.Read() {
-		if index == 0 {
-			index++
-		} else {
-			index = 0
-			continue
-		}
-
 		startTime := time.Now()
 
 		frame := video.FrameBuffer()
 		png.Encode(bytes.NewBuffer(frame), img)
 		fmt.Print(convertImage(img, asciiChars))
 
+		elapsed_time := float64(frame_count) / float64(video.Frames()) * video.Duration()
+		remaining_time := video.Duration() - elapsed_time
+		fmt.Print("\033[2K\r")
+		fmt.Printf("%s\t%d/%d Frames", formatTime(int(remaining_time)), frame_count, video.Frames())
+
 		elapsed := time.Since(startTime)
-		sleepTime := time.Second/time.Duration(video.FPS()/2) - elapsed
+		sleepTime := time.Second/time.Duration(video.FPS()) - elapsed
 		if sleepTime > 0 {
 			time.Sleep(sleepTime)
 		}
+		frame_count++
 	}
 }
