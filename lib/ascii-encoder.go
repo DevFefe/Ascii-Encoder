@@ -2,12 +2,10 @@ package lib
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"image"
 	"image/png"
 	"os"
-	"strings"
 	"time"
 
 	vidio "github.com/AlexEidt/Vidio"
@@ -20,22 +18,8 @@ func AsciiEncodeFromVideoFile(filename string) {
 		return
 	}
 
-	if string(filename) == "" {
-		fmt.Print("Specify video using -video {filename}\n")
-		return
-	}
-
-	if file_info, err := os.Stat(filename); errors.Is(err, os.ErrNotExist) {
-		fmt.Printf("File %s does not exists\n", filename)
-		return
-	} else {
-		if strings.Split(file_info.Name(), ".")[1] != "mp4" {
-			fmt.Printf("File %s is not a mp4 video\n", filename)
-			return
-		}
-	}
-
-	asciiChars := []rune{'$', '@', 'B', '%', '8', '&', 'W', 'M', '#', '*', 'o', 'a', 'h', 'k', 'b', 'd', 'p', 'q', 'w', 'm', 'Z', 'O', '0', 'Q', 'L', 'C', 'J', 'U', 'Y', 'X', 'z', 'c', 'v', 'u', 'n', 'x', 'r', 'j', 'f', 't', '/', '\\', '|', '(', ')', '1', '{', '}', '[', ']', '?', '-', '_', '+', '~', '<', '>', 'i', '!', 'l', 'I', ';', ':', ',', '"', '^', '`', '\''}
+	// asciiChars := []rune{'$', '@', 'B', '%', '8', '&', 'W', 'M', '#', '*', 'o', 'a', 'h', 'k', 'b', 'd', 'p', 'q', 'w', 'm', 'Z', 'O', '0', 'Q', 'L', 'C', 'J', 'U', 'Y', 'X', 'z', 'c', 'v', 'u', 'n', 'x', 'r', 'j', 'f', 't', '/', '\\', '|', '(', ')', '1', '{', '}', '[', ']', '?', '-', '_', '+', '~', '<', '>', 'i', '!', 'l', 'I', ';', ':', ',', '"', '^', '`', '\''}
+	var asciiChar rune = '\u2588'
 
 	video, err := vidio.NewVideo(string(filename))
 	if err != nil {
@@ -52,7 +36,7 @@ func AsciiEncodeFromVideoFile(filename string) {
 
 		frame := video.FrameBuffer()
 		png.Encode(bytes.NewBuffer(frame), img)
-		fmt.Print(convertImage(img, asciiChars))
+		fmt.Print(convertImage(img, asciiChar))
 
 		elapsed_time := float64(frame_count) / float64(video.Frames()) * video.Duration()
 		remaining_time := video.Duration() - elapsed_time
@@ -97,7 +81,7 @@ func calcBounds(value image.Image) (int, int, int, int) {
 	return width, height, width_diff, height_diff
 }
 
-func convertImage(frame image.Image, asciiChars []rune) string {
+func convertImage(frame image.Image, asciiChar rune) string {
 	width, height, width_diff, height_diff := calcBounds(frame)
 
 	var buffer bytes.Buffer
@@ -120,9 +104,7 @@ func convertImage(frame image.Image, asciiChars []rune) string {
 					B = B * 255 / A
 				}
 
-				Y := 0.2126*float64(R) + 0.7152*float64(G) + 0.0722*float64(B)
-
-				buffer.WriteString("\x1b[38;2;" + fmt.Sprintf("%d", R) + ";" + fmt.Sprintf("%d", G) + ";" + fmt.Sprintf("%d", B) + "m" + string(asciiChars[int(Y)%len(asciiChars)]) + "\x1b[0m")
+				buffer.WriteString("\x1b[38;2;" + fmt.Sprintf("%d", R) + ";" + fmt.Sprintf("%d", G) + ";" + fmt.Sprintf("%d", B) + "m" + string(asciiChar) + "\x1b[0m")
 			}
 		}
 		if y != height-1 {
