@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"flag"
 	"fmt"
 	"image"
 	"image/gif"
 	"image/png"
 	"os"
+	"strings"
 	"time"
 
 	vidio "github.com/AlexEidt/Vidio"
@@ -122,6 +125,24 @@ func main() {
 		return
 	}
 
+	video_filename := flag.String("video", "", "")
+	flag.Parse()
+
+	if string(*video_filename) == "" {
+		fmt.Print("Specify video using -video {filename}\n")
+		return
+	}
+
+	if file_info, err := os.Stat(*video_filename); errors.Is(err, os.ErrNotExist) {
+		fmt.Printf("File %s does not exists\n", *video_filename)
+		return
+	} else {
+		if strings.Split(file_info.Name(), ".")[1] != "mp4" {
+			fmt.Printf("File %s is not a mp4 video\n", *video_filename)
+			return
+		}
+	}
+
 	asciiChars := []rune{'$', '@', 'B', '%', '8', '&', 'W', 'M', '#', '*', 'o', 'a', 'h', 'k', 'b', 'd', 'p', 'q', 'w', 'm', 'Z', 'O', '0', 'Q', 'L', 'C', 'J', 'U', 'Y', 'X', 'z', 'c', 'v', 'u', 'n', 'x', 'r', 'j', 'f', 't', '/', '\\', '|', '(', ')', '1', '{', '}', '[', ']', '?', '-', '_', '+', '~', '<', '>', 'i', '!', 'l', 'I', ';', ':', ',', '"', '^', '`', '\''}
 
 	// Convert Image to Ascii
@@ -153,9 +174,9 @@ func main() {
 	// 	index += 1
 	// }
 
-	video, err := vidio.NewVideo("nyan.mp4")
+	video, err := vidio.NewVideo(string(*video_filename))
 	if err != nil {
-		fmt.Printf(err.Error())
+		fmt.Println(err.Error())
 		return
 	}
 
